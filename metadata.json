@@ -1,0 +1,6 @@
+{
+  "name": "Reloj ESP32 - Control BLE & Simulador",
+  "description": "App Material 3 para controlar por Bluetooth Low Energy (BLE) el reloj de pared ESP32-C3 con 58 LEDs WS2812B, con soporte para Web Bluetooth, simulador de hardware y código fuente Flutter exportable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
