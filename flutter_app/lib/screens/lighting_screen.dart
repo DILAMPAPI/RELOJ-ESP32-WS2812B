@@ -228,10 +228,14 @@ class _LightingScreenState extends State<LightingScreen> {
                     spacing: 12,
                     runSpacing: 12,
                     children: _presetColors.map((color) {
-                      final isSelected = config.color.value == color.value;
+                      final isSelected = config.color.toARGB32() == color.toARGB32();
                       return GestureDetector(
                         onTap: isConnected
-                            ? () => ble.setColor(color.red, color.green, color.blue)
+                            ? () => ble.setColor(
+                                  (color.r * 255.0).round().clamp(0, 255),
+                                  (color.g * 255.0).round().clamp(0, 255),
+                                  (color.b * 255.0).round().clamp(0, 255),
+                                )
                             : null,
                         child: Container(
                           width: 48,

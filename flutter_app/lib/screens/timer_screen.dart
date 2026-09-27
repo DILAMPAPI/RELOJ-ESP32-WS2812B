@@ -136,7 +136,7 @@ class _TimerScreenState extends State<TimerScreen> {
                           label: const Text('Reanudar'),
                         )
                       : FilledButton.tonalIcon(
-                          style: FilledButton.tonalFrom(
+                          style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                           onPressed: isConnected ? () => ble.pauseTimer() : null,

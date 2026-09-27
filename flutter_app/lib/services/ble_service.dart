@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../models/clock_status.dart';
 import '../models/clock_config.dart';
@@ -145,7 +145,7 @@ class BleService extends ChangeNotifier {
     });
 
     try {
-      await device.connect(timeout: const Duration(seconds: 8), autoConnect: false);
+      await device.connect(timeout: const Duration(seconds: 8), autoConnect: false, license: License.nonprofit);
       _log('Conectado. Descubriendo servicios Nordic UART...');
 
       final services = await device.discoverServices();

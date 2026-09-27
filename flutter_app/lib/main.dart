@@ -61,11 +61,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final ble = context.watch<BleService>();
 
     // Mostrar SnackBar cuando se recibe un error del reloj o BLE
-    if (ble.lastError != null) {
+    final error = ble.lastError;
+    if (error != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(ble.lastError!),
+            content: Text(error),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(

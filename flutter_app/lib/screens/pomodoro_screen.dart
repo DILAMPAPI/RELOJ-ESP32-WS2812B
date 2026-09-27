@@ -158,7 +158,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                           label: const Text('Reanudar'),
                         )
                       : FilledButton.tonalIcon(
-                          style: FilledButton.tonalFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                           onPressed: isConnected ? () => ble.pausePomodoro() : null,
                           icon: const Icon(Icons.pause),
                           label: const Text('Pausar'),

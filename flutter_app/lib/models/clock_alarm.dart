@@ -26,7 +26,7 @@ class ClockAlarm {
       index: idx,
       hour: 7,
       minute: 0,
-      days: 0b0111110, // Lun-Vie por defecto (62)
+      days: 62, // Lun-Vie por defecto (0b0111110 = 62)
       enabled: false,
       label: 'Alarma ${idx + 1}',
     );

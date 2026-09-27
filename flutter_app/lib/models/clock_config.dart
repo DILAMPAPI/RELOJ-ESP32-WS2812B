@@ -13,9 +13,9 @@ class ClockConfig {
     this.timeFormat = 24,
   });
 
-  int get r => color.red;
-  int get g => color.green;
-  int get b => color.blue;
+  int get r => (color.r * 255.0).round().clamp(0, 255);
+  int get g => (color.g * 255.0).round().clamp(0, 255);
+  int get b => (color.b * 255.0).round().clamp(0, 255);
 
   factory ClockConfig.parse(String line) {
     // Quitar prefijo "CONFIG "
