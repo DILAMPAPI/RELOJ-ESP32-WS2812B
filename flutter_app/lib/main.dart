@@ -33,12 +33,22 @@ class RelojEsp32App extends StatelessWidget {
           seedColor: const Color(0xFFFF6D00),
           brightness: Brightness.light,
         ),
+        navigationBarTheme: NavigationBarThemeData(
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 10.0, fontWeight: FontWeight.w500),
+          ),
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFFF6D00),
           brightness: Brightness.dark,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 10.0, fontWeight: FontWeight.w500),
+          ),
         ),
       ),
       home: const MainNavigationShell(),
@@ -97,6 +107,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         onDestinationSelected: (idx) {
           setState(() {
             _currentIndex = idx;

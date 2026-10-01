@@ -376,6 +376,18 @@ class BleService extends ChangeNotifier {
     return sendCommand('SET_FORMAT $f');
   }
 
+  /// SET_ALERT_DURATIONS alarmSec timerSec pomoTransSec pomoFinSec
+  Future<bool> setAlertDurations(int alarmSec, int timerSec, int pomoTransSec, int pomoFinSec) {
+    _config = _config.copyWith(
+      alarmDurationSec: alarmSec,
+      timerAlertDurationSec: timerSec,
+      pomoTransitionAlertSec: pomoTransSec,
+      pomoFinishedAlertSec: pomoFinSec,
+    );
+    notifyListeners();
+    return sendCommand('SET_ALERT_DURATIONS $alarmSec $timerSec $pomoTransSec $pomoFinSec');
+  }
+
   /// ADD_ALARM idx HH MM days enabled
   Future<bool> saveAlarm(ClockAlarm alarm) {
     if (alarm.index >= 0 && alarm.index < 5) {

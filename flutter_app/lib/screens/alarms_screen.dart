@@ -77,7 +77,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Alarmas Programadas (Máx. 5)',
+                'Alarmas Programadas ',
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
@@ -240,120 +240,126 @@ class _AlarmEditorModalState extends State<_AlarmEditorModal> {
         top: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Editar Alarma ${widget.alarm.index + 1}',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                tooltip: 'Borrar alarma',
-                onPressed: () {
-                  ble.removeAlarm(widget.alarm.index);
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Selector de Hora
-          Center(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: _pickTime,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Editar Alarma ${widget.alarm.index + 1}',
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
-                child: Text(
-                  formattedTime,
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Borrar alarma',
+                  onPressed: () {
+                    ble.removeAlarm(widget.alarm.index);
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Selector de Hora
+            Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _pickTime,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    formattedTime,
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              'Toca la hora para cambiarla',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'Toca la hora para cambiarla',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // Selector de Días (Bitmask 0-127)
-          Text(
-            'Repetir en los días:',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(7, (i) {
-              final isSelected = (_days & (1 << i)) != 0;
-              return FilterChip(
-                label: Text(_dayNames[i]),
-                selected: isSelected,
-                showCheckmark: false,
-                onSelected: (val) {
-                  setState(() {
-                    _days = ClockAlarm.toggleDayInMask(_days, i);
-                  });
-                },
-              );
-            }),
-          ),
-          const SizedBox(height: 16),
-
-          // Nombre opcional
-          TextField(
-            controller: _labelCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Nombre / Etiqueta (local en app)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.label_outline),
+            // Selector de Días (Bitmask 0-127)
+            Text(
+              'Repetir en los días:',
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              children: List.generate(7, (i) {
+                final isSelected = (_days & (1 << i)) != 0;
+                return FilterChip(
+                  label: Text(_dayNames[i]),
+                  selected: isSelected,
+                  showCheckmark: false,
+                  onSelected: (val) {
+                    setState(() {
+                      _days = ClockAlarm.toggleDayInMask(_days, i);
+                    });
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 16),
 
-          // Switch Activar Alarma
-          SwitchListTile(
-            title: const Text('Alarma activada'),
-            value: _enabled,
-            onChanged: (val) => setState(() => _enabled = val),
-          ),
-          const SizedBox(height: 20),
+            // Nombre opcional
+            TextField(
+              controller: _labelCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nombre / Etiqueta (local en app)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.label_outline),
+              ),
+            ),
+            const SizedBox(height: 16),
 
-          // Botón Guardar
-          FilledButton.icon(
-            icon: const Icon(Icons.check),
-            label: const Text('Guardar Alarma en el Reloj'),
-            onPressed: () {
-              final updated = widget.alarm.copyWith(
-                hour: _hour,
-                minute: _minute,
-                days: _days,
-                enabled: _enabled,
-                label: _labelCtrl.text.trim(),
-              );
-              ble.saveAlarm(updated);
-              Navigator.pop(context);
-            },
-          ),
-        ],
+            // Switch Activar Alarma
+            SwitchListTile(
+              title: const Text('Alarma activada'),
+              value: _enabled,
+              onChanged: (val) => setState(() => _enabled = val),
+            ),
+            const SizedBox(height: 20),
+
+            // Botón Guardar
+            FilledButton.icon(
+              icon: const Icon(Icons.check),
+              label: const Text('Guardar Alarma en el Reloj'),
+              onPressed: () {
+                final updated = widget.alarm.copyWith(
+                  hour: _hour,
+                  minute: _minute,
+                  days: _days,
+                  enabled: _enabled,
+                  label: _labelCtrl.text.trim(),
+                );
+                ble.saveAlarm(updated);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

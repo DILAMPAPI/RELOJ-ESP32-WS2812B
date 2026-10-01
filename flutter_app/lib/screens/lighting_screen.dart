@@ -181,18 +181,23 @@ class _LightingScreenState extends State<LightingScreen> {
                           }
                         : null,
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.spaceBetween,
                     children: [
                       TextButton(
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
                         onPressed: isConnected ? () => ble.setBrightness(25) : null,
                         child: const Text('10% (Noche)'),
                       ),
                       TextButton(
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
                         onPressed: isConnected ? () => ble.setBrightness(128) : null,
                         child: const Text('50% (Medio)'),
                       ),
                       TextButton(
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
                         onPressed: isConnected ? () => ble.setBrightness(255) : null,
                         child: const Text('100% (Día)'),
                       ),

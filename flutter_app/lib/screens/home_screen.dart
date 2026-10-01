@@ -73,9 +73,10 @@ class HomeScreen extends StatelessWidget {
                         style: FilledButton.styleFrom(
                           backgroundColor: theme.colorScheme.error,
                           foregroundColor: theme.colorScheme.onError,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         ),
                         onPressed: () => ble.stopAlert(),
-                        icon: const Icon(Icons.stop),
+                        icon: const Icon(Icons.stop, size: 18),
                         label: const Text('DETENER'),
                       ),
                     ],
@@ -199,14 +200,15 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
                       children: [
                         Chip(
                           avatar: const Icon(Icons.tune, size: 16),
                           label: Text('Brillo: ${(ble.config.brightness * 100 ~/ 255)}%'),
                         ),
-                        const SizedBox(width: 8),
                         Chip(
                           avatar: const Icon(Icons.schedule, size: 16),
                           label: Text('Modo: ${status.mode.label}'),

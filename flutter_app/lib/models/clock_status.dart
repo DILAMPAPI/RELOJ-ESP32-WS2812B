@@ -1,8 +1,8 @@
-/// Representa el estado actual del reloj ESP32 recibido por GET_STATUS
-/// Ejemplos:
-/// "STATUS mode=CLOCK time=14:05:30 alert=0"
-/// "STATUS mode=TIMER time=14:05:30 alert=0 remainingSec=45 paused=0"
-/// "STATUS mode=POMODORO time=14:05:30 alert=0 phase=WORK round=2/4 remainingSec=900 paused=0"
+/* Representa el estado actual del reloj ESP32 recibido por GET_STATUS
+   Ejemplos:
+   "STATUS mode=CLOCK time=14:05:30 alert=0"
+   "STATUS mode=TIMER time=14:05:30 alert=0 remainingSec=45 paused=0"
+   "STATUS mode=POMODORO time=14:05:30 alert=0 phase=WORK round=2/4 remainingSec=900 paused=0" */
 
 enum ClockMode {
   clock,

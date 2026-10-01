@@ -186,15 +186,24 @@ class _TimerScreenState extends State<TimerScreen> {
                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildTimePickerColumn('Horas', _hours, 23, (val) => setState(() => _hours = val)),
-                      const Text(':', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                      _buildTimePickerColumn('Minutos', _minutes, 59, (val) => setState(() => _minutes = val)),
-                      const Text(':', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                      _buildTimePickerColumn('Segundos', _seconds, 59, (val) => setState(() => _seconds = val)),
-                    ],
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildTimePickerColumn('Horas', _hours, 23, (val) => setState(() => _hours = val)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(':', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                        ),
+                        _buildTimePickerColumn('Minutos', _minutes, 59, (val) => setState(() => _minutes = val)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(':', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                        ),
+                        _buildTimePickerColumn('Segundos', _seconds, 59, (val) => setState(() => _seconds = val)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Text(
