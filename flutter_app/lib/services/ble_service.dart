@@ -113,7 +113,9 @@ class BleService extends ChangeNotifier {
         // Segundo intento: buscar por nombre si no anunció UUID directamente
         final allResults = FlutterBluePlus.lastScanResults;
         for (final r in allResults) {
-          if (r.device.platformName.contains('ESP32') || r.device.platformName == targetDeviceName) {
+          final pName = r.device.platformName;
+          final aName = r.advertisementData.advName;
+          if (pName.contains('ESP32') || aName.contains('ESP32') || pName == targetDeviceName || aName == targetDeviceName) {
             foundDevice = r.device;
             break;
           }
@@ -146,6 +148,15 @@ class BleService extends ChangeNotifier {
 
     try {
       await device.connect(timeout: const Duration(seconds: 8), autoConnect: false, license: License.nonprofit);
+      
+      // Intentar solicitar MTU más grande para evitar truncado de tramas CONFIG/STATUS
+      try {
+        await device.requestMtu(256);
+        _log('MTU ampliado a 256 bytes.');
+      } catch (mtuErr) {
+        _log('Aviso MTU: $mtuErr');
+      }
+
       _log('Conectado. Descubriendo servicios Nordic UART...');
 
       final services = await device.discoverServices();
@@ -209,6 +220,21 @@ class BleService extends ChangeNotifier {
 
       if (line.isNotEmpty) {
         _processResponseLine(line);
+      }
+    }
+
+    // Failsafe: si la respuesta viene completa sin salto de línea \n
+    final trimmed = _txBuffer.trim();
+    if (trimmed.isNotEmpty) {
+      if (trimmed.startsWith('STATUS ') ||
+          trimmed.startsWith('CONFIG ') ||
+          trimmed.startsWith('ALARM ') ||
+          trimmed == 'OK' ||
+          trimmed == 'PONG' ||
+          trimmed.startsWith('OK ') ||
+          trimmed.startsWith('ERR ')) {
+        _processResponseLine(trimmed);
+        _txBuffer = '';
       }
     }
   }
