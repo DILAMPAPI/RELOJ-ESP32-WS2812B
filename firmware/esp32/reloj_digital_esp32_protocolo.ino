@@ -12,17 +12,17 @@
 // la conexión BLE).
 
 // =========================
-// PINES
+// PINES DE CONEXIÓN
 // =========================
 
-#define LED_PIN 5
+#define LED_PIN 5        // Pin DIN de la tira de LEDs WS2812B
 
-#define SDA_PIN 8
-#define SCL_PIN 9
+#define SDA_PIN 8        // Pin SDA para comunicación I2C con el RTC DS1307
+#define SCL_PIN 9        // Pin SCL para comunicación I2C con el RTC DS1307
 
-#define BUZZER_PIN 10
+#define BUZZER_PIN 10    // Pin digital conectado al buzzer (activo)
 
-#define NUM_LEDS 58
+#define NUM_LEDS 58      // Cantidad total de LEDs en el reloj (4 dígitos x 14 LEDs + 2 del centro)
 
 // =========================
 // BLE (Nordic UART Service)
@@ -58,8 +58,10 @@ Preferences preferences;
 const int LEDS_PER_SEGMENT = 2;
 const int CENTER_LEDS = 2;
 
-// Orden físico de segmentos:
+// Orden físico de segmentos en la PCB/matriz:
 // [g, B, a, f, E, d, c]
+// Cada fila representa un número del 0 al 9 y define qué segmentos
+// se encienden (1) o se apagan (0) para formar ese número.
 
 const int segmentMap[10][7] = {
 
@@ -89,12 +91,18 @@ struct Config {
   uint8_t green;
   uint8_t blue;
   bool format24h;
+  
+  // Tiempos de alerta configurables (guardados en segundos)
+  uint16_t alarmDurationSec;        // Duración del sonido de alarmas programadas
+  uint16_t timerAlertDurationSec;   // Duración de alerta al finalizar el temporizador
+  uint16_t pomoTransitionAlertSec;  // Duración de alerta al cambiar de fase en Pomodoro
+  uint16_t pomoFinishedAlertSec;    // Duración de alerta al terminar todo el Pomodoro
 };
 
 struct Alarm {
   uint8_t hour;
   uint8_t minute;
-  uint8_t days;     // bitmask: bit0=Domingo ... bit6=Sábado (DateTime::dayOfTheWeek())
+  uint8_t days;     // bitmask: bit0=Domingo ... bit6=Sábado (según DateTime::dayOfTheWeek())
   bool enabled;
 };
 
@@ -118,14 +126,17 @@ enum PomodoroPhase {
 
 const char* PREFS_NAMESPACE = "reloj";
 
-// --- Configuración ---
+// --- Configuración por defecto ---
 Config config = {
-  50, 255, 255, 255, true
+  50, 255, 255, 255, true,
+  60, // alarmDurationSec
+  30, // timerAlertDurationSec
+  5,  // pomoTransitionAlertSec
+  30  // pomoFinishedAlertSec
 };
 
 // --- Alarmas ---
 const int MAX_ALARMS = 5;
-const unsigned long ALARM_ALERT_DURATION_MS = 60000;
 Alarm alarms[MAX_ALARMS];
 int lastAlarmCheckMinute = -1;
 
@@ -141,7 +152,6 @@ bool blinkState = false;
 TimerState timerState = TIMER_IDLE;
 unsigned long timerRemainingMs = 0;
 unsigned long timerLastTick = 0;
-const unsigned long TIMER_ALERT_DURATION_MS = 30000;
 
 // --- Pomodoro ---
 PomodoroPhase pomodoroPhase = POMO_IDLE;
@@ -152,8 +162,6 @@ uint16_t pomodoroWorkMinutes = 25;
 uint16_t pomodoroBreakMinutes = 5;
 unsigned long pomodoroRemainingMs = 0;
 unsigned long pomodoroLastTick = 0;
-const unsigned long POMODORO_TRANSITION_ALERT_MS = 5000;
-const unsigned long POMODORO_FINISHED_ALERT_MS = 30000;
 
 // --- Reloj / refresco de pantalla ---
 const unsigned long CLOCK_UPDATE_INTERVAL_MS = 200;
@@ -176,11 +184,15 @@ void loadConfig() {
 
   preferences.begin(PREFS_NAMESPACE, true);
 
-  config.brightness = preferences.getUChar("brightness", config.brightness);
-  config.red         = preferences.getUChar("red", config.red);
-  config.green       = preferences.getUChar("green", config.green);
-  config.blue        = preferences.getUChar("blue", config.blue);
-  config.format24h   = preferences.getBool("format24h", config.format24h);
+  config.brightness             = preferences.getUChar("brightness", config.brightness);
+  config.red                    = preferences.getUChar("red", config.red);
+  config.green                  = preferences.getUChar("green", config.green);
+  config.blue                   = preferences.getUChar("blue", config.blue);
+  config.format24h              = preferences.getBool("format24h", config.format24h);
+  config.alarmDurationSec       = preferences.getUShort("almDurSec", config.alarmDurationSec);
+  config.timerAlertDurationSec  = preferences.getUShort("tmrDurSec", config.timerAlertDurationSec);
+  config.pomoTransitionAlertSec = preferences.getUShort("pmTrDurSec", config.pomoTransitionAlertSec);
+  config.pomoFinishedAlertSec   = preferences.getUShort("pmFinDurSec", config.pomoFinishedAlertSec);
 
   preferences.end();
 
@@ -196,6 +208,10 @@ void saveConfig() {
   preferences.putUChar("green", config.green);
   preferences.putUChar("blue", config.blue);
   preferences.putBool("format24h", config.format24h);
+  preferences.putUShort("almDurSec", config.alarmDurationSec);
+  preferences.putUShort("tmrDurSec", config.timerAlertDurationSec);
+  preferences.putUShort("pmTrDurSec", config.pomoTransitionAlertSec);
+  preferences.putUShort("pmFinDurSec", config.pomoFinishedAlertSec);
 
   preferences.end();
 
@@ -224,7 +240,7 @@ int displayHour(int hour24) {
 // ---- Alerta genérica (parpadeo + buzzer) ----
 
 uint32_t alertColor() {
-  return strip.Color(255, 0, 0);
+  return strip.Color(255, 0, 0); // Rojo brillante durante una alarma
 }
 
 void startAlert(unsigned long durationMs) {
@@ -356,7 +372,8 @@ void checkAlarms(const DateTime &now) {
     if (!activeToday) continue;
 
     if (alarms[i].hour == now.hour() && alarms[i].minute == now.minute()) {
-      startAlert(ALARM_ALERT_DURATION_MS);
+      // Usa el tiempo configurable especificado para alarmas
+      startAlert((unsigned long)config.alarmDurationSec * 1000UL);
       Serial.printf("¡Alarma %d activada!\n", i);
       break;
     }
@@ -365,7 +382,7 @@ void checkAlarms(const DateTime &now) {
 
 // ---- Pomodoro ----
 
-void timerReset(); // se usa en pomodoroStart(); definida más abajo
+void timerReset(); // Se declara aquí porque se usa en pomodoroStart()
 
 void pomodoroReset() {
   pomodoroPhase = POMO_IDLE;
@@ -435,14 +452,14 @@ void updatePomodoro() {
     if (pomodoroCurrentRound >= pomodoroTotalRounds) {
       pomodoroPhase = POMO_FINISHED;
       Serial.println("¡Pomodoro completo!");
-      startAlert(POMODORO_FINISHED_ALERT_MS);
+      startAlert((unsigned long)config.pomoFinishedAlertSec * 1000UL);
       return;
     }
 
     pomodoroPhase = POMO_BREAK;
     pomodoroRemainingMs = (unsigned long)pomodoroBreakMinutes * 60UL * 1000UL;
     Serial.printf("Ronda %d: descanso\n", pomodoroCurrentRound);
-    startAlert(POMODORO_TRANSITION_ALERT_MS);
+    startAlert((unsigned long)config.pomoTransitionAlertSec * 1000UL);
 
   } else {
 
@@ -450,7 +467,7 @@ void updatePomodoro() {
     pomodoroPhase = POMO_WORK;
     pomodoroRemainingMs = (unsigned long)pomodoroWorkMinutes * 60UL * 1000UL;
     Serial.printf("Ronda %d: trabajo\n", pomodoroCurrentRound);
-    startAlert(POMODORO_TRANSITION_ALERT_MS);
+    startAlert((unsigned long)config.pomoTransitionAlertSec * 1000UL);
   }
 
   lastDisplayedCountdownSecond = -1;
@@ -505,7 +522,7 @@ void updateTimer() {
     timerState = TIMER_FINISHED;
 
     Serial.println("¡Temporizador terminado!");
-    startAlert(TIMER_ALERT_DURATION_MS);
+    startAlert((unsigned long)config.timerAlertDurationSec * 1000UL);
 
   } else {
     timerRemainingMs -= elapsed;
@@ -548,10 +565,10 @@ void displayTime(int hour24, int minute) {
   displayDigit(hourToShow / 10, 0, color);
   displayDigit(hourToShow % 10, 1, color);
 
+  // Puntos centrales: Usan ahora el mismo color configurable configurado por el usuario
   int centerIndex = 2 * 14;
-
-  strip.setPixelColor(centerIndex, strip.Color(255, 255, 255));
-  strip.setPixelColor(centerIndex + 1, strip.Color(255, 255, 255));
+  strip.setPixelColor(centerIndex, color);
+  strip.setPixelColor(centerIndex + 1, color);
 
   displayDigit(minute / 10, 2, color);
   displayDigit(minute % 10, 3, color);
@@ -571,10 +588,10 @@ void displayCountdown(unsigned long remainingMs, uint32_t color) {
   displayDigit(totalMinutes / 10, 0, color);
   displayDigit(totalMinutes % 10, 1, color);
 
+  // Puntos centrales: Usan el color correspondiente al conteo
   int centerIndex = 2 * 14;
-
-  strip.setPixelColor(centerIndex, strip.Color(255, 255, 255));
-  strip.setPixelColor(centerIndex + 1, strip.Color(255, 255, 255));
+  strip.setPixelColor(centerIndex, color);
+  strip.setPixelColor(centerIndex + 1, color);
 
   displayDigit(seconds / 10, 2, color);
   displayDigit(seconds % 10, 3, color);
@@ -598,7 +615,7 @@ void refreshDisplay(const DateTime &now) {
 
       uint32_t color = (pomodoroPhase == POMO_WORK)
         ? strip.Color(config.red, config.green, config.blue)
-        : strip.Color(0, 255, 0);
+        : strip.Color(0, 255, 0); // Verde en fase de descanso
 
       displayCountdown(pomodoroRemainingMs, color);
     }
@@ -672,7 +689,11 @@ void sendConfigStatus() {
 
   String msg = "CONFIG brightness=" + String(config.brightness) +
                " color=" + String(config.red) + "," + String(config.green) + "," + String(config.blue) +
-               " format=" + String(config.format24h ? 24 : 12);
+               " format=" + String(config.format24h ? 24 : 12) +
+               " alarmDurationSec=" + String(config.alarmDurationSec) +
+               " timerAlertDurationSec=" + String(config.timerAlertDurationSec) +
+               " pomoTransitionAlertSec=" + String(config.pomoTransitionAlertSec) +
+               " pomoFinishedAlertSec=" + String(config.pomoFinishedAlertSec);
 
   sendResponse(msg);
 }
@@ -729,13 +750,12 @@ void sendFullStatus() {
 }
 
 // ---- Procesamiento de comandos (compartido por Serie y BLE) ----
-// Protocolo definitivo (paso 9 de la hoja de ruta). Formato de
-// texto plano: "COMANDO arg1 arg2 ..." desde la app; el ESP32
-// responde "OK ..." / "ERR <motivo>" o, para los GET_*, una línea
+// Protocolo definitivo. Formato de texto plano: "COMANDO arg1 arg2 ..." desde la app; 
+// el ESP32 responde "OK ..." / "ERR <motivo>" o, para los GET_*, una línea
 // informativa (CONFIG/ALARM/STATUS).
 //
 // Reloj:      SET_TIME aaaa mm dd HH MM SS
-// Config:     SET_BRIGHTNESS n | SET_COLOR r g b | SET_FORMAT 12|24 | GET_CONFIG
+// Config:     SET_BRIGHTNESS n | SET_COLOR r g b | SET_FORMAT 12|24 | SET_ALERT_DURATIONS alm tmr pmTr pmFin | GET_CONFIG
 // Alarmas:    ADD_ALARM idx HH MM days enabled | REMOVE_ALARM idx | TOGGLE_ALARM idx 0|1 | GET_ALARMS
 // Temporiz.:  START_TIMER h m s | PAUSE_TIMER | RESUME_TIMER | STOP_TIMER
 // Pomodoro:   START_POMODORO workMin breakMin rounds | PAUSE_POMODORO | RESUME_POMODORO | STOP_POMODORO
@@ -801,7 +821,7 @@ void processCommand(String line) {
     config.blue = (uint8_t)b;
     saveConfig();
 
-    lastDisplayedSecond = -1; // redibuja ya con el nuevo color
+    lastDisplayedSecond = -1; // Redibuja inmediatamente con el nuevo color
     lastDisplayedCountdownSecond = -1;
 
     sendResponse("OK SET_COLOR " + String(r) + " " + String(g) + " " + String(b));
@@ -820,6 +840,24 @@ void processCommand(String line) {
     saveConfig();
 
     sendResponse("OK SET_FORMAT " + String(fmt));
+
+  } else if (line.startsWith("SET_ALERT_DURATIONS")) {
+
+    int alm = -1, tmr = -1, pmTr = -1, pmFin = -1;
+    int parsed = sscanf(line.c_str(), "SET_ALERT_DURATIONS %d %d %d %d", &alm, &tmr, &pmTr, &pmFin);
+
+    if (parsed != 4 || alm <= 0 || tmr <= 0 || pmTr <= 0 || pmFin <= 0) {
+      sendResponse("ERR SET_ALERT_DURATIONS formato: SET_ALERT_DURATIONS alarmSec timerSec pomoTransSec pomoFinSec");
+      return;
+    }
+
+    config.alarmDurationSec = (uint16_t)alm;
+    config.timerAlertDurationSec = (uint16_t)tmr;
+    config.pomoTransitionAlertSec = (uint16_t)pmTr;
+    config.pomoFinishedAlertSec = (uint16_t)pmFin;
+    saveConfig();
+
+    sendResponse("OK SET_ALERT_DURATIONS " + String(alm) + " " + String(tmr) + " " + String(pmTr) + " " + String(pmFin));
 
   } else if (line == "GET_CONFIG") {
 
@@ -1104,7 +1142,7 @@ void setup() {
 
   Serial.println("Reloj iniciado.");
   Serial.println("Comandos (Serie o BLE):");
-  Serial.println("  SET_TIME aaaa mm dd HH MM SS | SET_BRIGHTNESS n | SET_COLOR r g b | SET_FORMAT 12|24 | GET_CONFIG");
+  Serial.println("  SET_TIME aaaa mm dd HH MM SS | SET_BRIGHTNESS n | SET_COLOR r g b | SET_FORMAT 12|24 | SET_ALERT_DURATIONS alm tmr pmTr pmFin | GET_CONFIG");
   Serial.println("  ADD_ALARM idx HH MM days enabled | REMOVE_ALARM idx | TOGGLE_ALARM idx 0|1 | GET_ALARMS");
   Serial.println("  START_TIMER h m s | PAUSE_TIMER | RESUME_TIMER | STOP_TIMER");
   Serial.println("  START_POMODORO workMin breakMin rounds | PAUSE_POMODORO | RESUME_POMODORO | STOP_POMODORO");
