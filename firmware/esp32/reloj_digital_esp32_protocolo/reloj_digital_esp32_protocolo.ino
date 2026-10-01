@@ -91,7 +91,7 @@ struct Config {
   uint8_t green;
   uint8_t blue;
   bool format24h;
-  
+
   // Tiempos de alerta configurables (guardados en segundos)
   uint16_t alarmDurationSec;        // Duración del sonido de alarmas programadas
   uint16_t timerAlertDurationSec;   // Duración de alerta al finalizar el temporizador
@@ -678,8 +678,10 @@ void sendResponse(const String &msg) {
   Serial.println(msg);
 
   if (bleClientConnected && bleTxCharacteristic != nullptr) {
-    bleTxCharacteristic->setValue(msg.c_str());
+    String bleMsg = msg + "\n";
+    bleTxCharacteristic->setValue(bleMsg.c_str());
     bleTxCharacteristic->notify();
+    delay(20); // Pequeña pausa para asegurar el envío de la notificación BLE
   }
 }
 
@@ -750,7 +752,7 @@ void sendFullStatus() {
 }
 
 // ---- Procesamiento de comandos (compartido por Serie y BLE) ----
-// Protocolo definitivo. Formato de texto plano: "COMANDO arg1 arg2 ..." desde la app; 
+// Protocolo definitivo. Formato de texto plano: "COMANDO arg1 arg2 ..." desde la app;
 // el ESP32 responde "OK ..." / "ERR <motivo>" o, para los GET_*, una línea
 // informativa (CONFIG/ALARM/STATUS).
 //
@@ -1023,7 +1025,7 @@ void handleSerialCommands() {
 // una clase sí debe estar definida antes de usarse.
 
 class RelojServerCallbacks: public NimBLEServerCallbacks {
-
+public:
   // La API 2.x de NimBLE-Arduino agrega el parámetro connInfo
   // a estos callbacks respecto a versiones anteriores.
   void onConnect(NimBLEServer *server, NimBLEConnInfo &connInfo) override {
@@ -1039,7 +1041,7 @@ class RelojServerCallbacks: public NimBLEServerCallbacks {
 };
 
 class RelojRxCallbacks: public NimBLECharacteristicCallbacks {
-
+public:
   void onWrite(NimBLECharacteristic *characteristic, NimBLEConnInfo &connInfo) override {
 
     // `auto` en vez de std::string/NimBLEAttValue explícito: el
@@ -1056,6 +1058,7 @@ class RelojRxCallbacks: public NimBLECharacteristicCallbacks {
 void setupBLE() {
 
   NimBLEDevice::init(BLE_DEVICE_NAME);
+  NimBLEDevice::setMTU(256);
 
   // Limita la potencia de transmisión a un nivel razonable; ayuda
   // a la estabilidad y consume algo menos. Puedes subirlo si
@@ -1089,8 +1092,9 @@ void setupBLE() {
 }
 
 // =========================================================
-// SETUP
+// SETUP & LOOP (Linkage C para ESP32 Core 3.x)
 // =========================================================
+
 
 void setup() {
 
@@ -1148,10 +1152,6 @@ void setup() {
   Serial.println("  START_POMODORO workMin breakMin rounds | PAUSE_POMODORO | RESUME_POMODORO | STOP_POMODORO");
   Serial.println("  STOP_ALERT | PING | GET_STATUS");
 }
-
-// =========================================================
-// LOOP
-// =========================================================
 
 void loop() {
 
