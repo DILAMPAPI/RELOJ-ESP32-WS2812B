@@ -681,36 +681,26 @@ void sendResponse(const String &msg) {
     String bleMsg = msg + "\n";
     bleTxCharacteristic->setValue(bleMsg.c_str());
     bleTxCharacteristic->notify();
-    delay(20); // Pequeña pausa para asegurar el envío de la notificación BLE
+    delay(100); // Pausa ampliada a 100ms para garantizar que la pila BLE transmita la notificación sin sobreescrituras
   }
 }
 
 // ---- Respuestas de estado (para GET_CONFIG / GET_ALARMS / GET_STATUS) ----
 
 void sendConfigStatus() {
-
-  String msg = "CONFIG brightness=" + String(config.brightness) +
-               " color=" + String(config.red) + "," + String(config.green) + "," + String(config.blue) +
-               " format=" + String(config.format24h ? 24 : 12) +
-               " alarmDurationSec=" + String(config.alarmDurationSec) +
-               " timerAlertDurationSec=" + String(config.timerAlertDurationSec) +
-               " pomoTransitionAlertSec=" + String(config.pomoTransitionAlertSec) +
-               " pomoFinishedAlertSec=" + String(config.pomoFinishedAlertSec);
-
+  String msg = "CFG b=" + String(config.brightness) +
+               " c=" + String(config.red) + "," + String(config.green) + "," + String(config.blue) +
+               " f=" + String(config.format24h ? 24 : 12) +
+               " d=" + String(config.alarmDurationSec) + "," + String(config.timerAlertDurationSec) + "," + String(config.pomoTransitionAlertSec) + "," + String(config.pomoFinishedAlertSec);
   sendResponse(msg);
 }
 
 void sendAlarmsStatus() {
-
+  String msg = "ALMS";
   for (int i = 0; i < MAX_ALARMS; i++) {
-
-    String msg = "ALARM idx=" + String(i) +
-                 " time=" + String(alarms[i].hour) + ":" + String(alarms[i].minute) +
-                 " days=" + String(alarms[i].days) +
-                 " enabled=" + String(alarms[i].enabled ? 1 : 0);
-
-    sendResponse(msg);
+    msg += " " + String(i) + ":" + String(alarms[i].hour) + ":" + String(alarms[i].minute) + ":" + String(alarms[i].days) + ":" + String(alarms[i].enabled ? 1 : 0);
   }
+  sendResponse(msg);
 }
 
 // Da un resumen de qué está pasando ahora mismo en el reloj.
@@ -718,36 +708,22 @@ void sendAlarmsStatus() {
 // vez que la app se conecta necesita preguntar esto para saber si
 // hay un temporizador o Pomodoro corriendo, o una alerta sonando.
 void sendFullStatus() {
-
   DateTime now = rtc.now();
-
-  String mode;
-  String extra = "";
-
-  if (pomodoroPhase == POMO_WORK || pomodoroPhase == POMO_BREAK) {
-
-    mode = "POMODORO";
-    extra = " phase=" + String(pomodoroPhase == POMO_WORK ? "WORK" : "BREAK") +
-            " round=" + String(pomodoroCurrentRound) + "/" + String(pomodoroTotalRounds) +
-            " remainingSec=" + String((pomodoroRemainingMs + 999) / 1000) +
-            " paused=" + String(pomodoroPaused ? 1 : 0);
-
-  } else if (timerState == TIMER_RUNNING || timerState == TIMER_PAUSED) {
-
-    mode = "TIMER";
-    extra = " remainingSec=" + String((timerRemainingMs + 999) / 1000) +
-            " paused=" + String(timerState == TIMER_PAUSED ? 1 : 0);
-
-  } else {
-    mode = "CLOCK";
-  }
+  char modeChar = 'C';
+  if (pomodoroPhase == POMO_WORK || pomodoroPhase == POMO_BREAK) modeChar = 'P';
+  else if (timerState == TIMER_RUNNING || timerState == TIMER_PAUSED) modeChar = 'T';
 
   char timeBuf[9];
   snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
 
-  String msg = "STATUS mode=" + mode + " time=" + String(timeBuf) +
-               " alert=" + String(alertRinging ? 1 : 0) + extra;
-
+  String msg = "ST " + String(modeChar) + " " + String(timeBuf) + " " + String(alertRinging ? 1 : 0);
+  if (modeChar == 'P') {
+    int rem = (pomodoroRemainingMs + 999) / 1000;
+    msg += " w=" + String(pomodoroPhase == POMO_WORK ? 1 : 0) + " r=" + String(pomodoroCurrentRound) + "/" + String(pomodoroTotalRounds) + " rem=" + String(rem) + " ps=" + String(pomodoroPaused ? 1 : 0);
+  } else if (modeChar == 'T') {
+    int rem = (timerRemainingMs + 999) / 1000;
+    msg += " rem=" + String(rem) + " ps=" + String(timerState == TIMER_PAUSED ? 1 : 0);
+  }
   sendResponse(msg);
 }
 
@@ -864,7 +840,6 @@ void processCommand(String line) {
   } else if (line == "GET_CONFIG") {
 
     sendConfigStatus();
-    sendResponse("OK GET_CONFIG");
 
   // --- Alarmas ---
 
@@ -919,7 +894,6 @@ void processCommand(String line) {
   } else if (line == "GET_ALARMS") {
 
     sendAlarmsStatus();
-    sendResponse("OK GET_ALARMS");
 
   // --- Temporizador ---
 
@@ -1072,12 +1046,14 @@ void setupBLE() {
 
   bleTxCharacteristic = service->createCharacteristic(
     CHARACTERISTIC_UUID_TX,
-    NIMBLE_PROPERTY::NOTIFY
+    NIMBLE_PROPERTY::NOTIFY,
+    256
   );
 
   NimBLECharacteristic *rxCharacteristic = service->createCharacteristic(
     CHARACTERISTIC_UUID_RX,
-    NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
+    NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR,
+    256
   );
   rxCharacteristic->setCallbacks(new RelojRxCallbacks());
 
