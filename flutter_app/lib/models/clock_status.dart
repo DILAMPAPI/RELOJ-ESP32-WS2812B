@@ -124,6 +124,63 @@ class ClockStatus {
     );
   }
 
+  factory ClockStatus.parseShort(String line) {
+    final clean = line.replaceFirst(RegExp(r'^ST\s+'), '').trim();
+    final tokens = clean.split(RegExp(r'\s+'));
+    
+    ClockMode mode = ClockMode.clock;
+    String time = '--:--:--';
+    bool alert = false;
+    int? remainingSec;
+    bool isPaused = false;
+    PomodoroPhase? phase;
+    int? currentRound;
+    int? totalRounds;
+
+    if (tokens.isNotEmpty) {
+      final modeChar = tokens[0].toUpperCase();
+      if (modeChar == 'T') mode = ClockMode.timer;
+      else if (modeChar == 'P') mode = ClockMode.pomodoro;
+      else mode = ClockMode.clock;
+    }
+    if (tokens.length > 1) time = tokens[1];
+    if (tokens.length > 2) alert = tokens[2] == '1';
+
+    final map = <String, String>{};
+    for (int i = 3; i < tokens.length; i++) {
+      final parts = tokens[i].split('=');
+      if (parts.length == 2) {
+        map[parts[0].toLowerCase()] = parts[1];
+      }
+    }
+
+    if (map.containsKey('rem')) {
+      remainingSec = int.tryParse(map['rem']!);
+    }
+    if (map.containsKey('ps')) {
+      isPaused = map['ps'] == '1';
+    }
+    if (map.containsKey('w')) {
+      phase = map['w'] == '1' ? PomodoroPhase.work : PomodoroPhase.breakPhase;
+    }
+    if (map.containsKey('r')) {
+      final roundParts = map['r']!.split('/');
+      if (roundParts.isNotEmpty) currentRound = int.tryParse(roundParts[0]);
+      if (roundParts.length > 1) totalRounds = int.tryParse(roundParts[1]);
+    }
+
+    return ClockStatus(
+      mode: mode,
+      time: time,
+      alert: alert,
+      remainingSec: remainingSec,
+      isPaused: isPaused,
+      phase: phase,
+      currentRound: currentRound,
+      totalRounds: totalRounds,
+    );
+  }
+
   String get formattedRemaining {
     if (remainingSec == null) return '00:00';
     final h = remainingSec! ~/ 3600;

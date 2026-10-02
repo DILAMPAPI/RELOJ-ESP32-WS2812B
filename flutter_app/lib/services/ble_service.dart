@@ -197,6 +197,9 @@ class BleService extends ChangeNotifier {
       _setState(BleConnectionState.connected);
       _log('BLE listo. Sincronizando estado inicial con el reloj...');
 
+      // Esperar brevemente a que la suscripción BLE y el canal se estabilicen
+      await Future.delayed(const Duration(milliseconds: 400));
+
       // Secuencia inicial obligatoria: GET_STATUS, GET_CONFIG, GET_ALARMS
       await syncAll();
 
@@ -229,6 +232,9 @@ class BleService extends ChangeNotifier {
       if (trimmed.startsWith('STATUS ') ||
           trimmed.startsWith('CONFIG ') ||
           trimmed.startsWith('ALARM ') ||
+          trimmed.startsWith('CFG') ||
+          trimmed.startsWith('ALMS') ||
+          trimmed.startsWith('ST ') ||
           trimmed == 'OK' ||
           trimmed == 'PONG' ||
           trimmed.startsWith('OK ') ||
@@ -242,11 +248,88 @@ class BleService extends ChangeNotifier {
   void _processResponseLine(String line) {
     _log('RX ← $line');
 
-    if (line.startsWith('STATUS')) {
-      _status = ClockStatus.parse(line);
+    if (line.startsWith('STATUS') || line.startsWith('ST ')) {
+      _status = line.startsWith('ST ') ? ClockStatus.parseShort(line) : ClockStatus.parse(line);
       notifyListeners();
     } else if (line.startsWith('CONFIG')) {
       _config = ClockConfig.parse(line);
+      notifyListeners();
+    } else if (line.startsWith('CFG')) {
+      final clean = line.replaceFirst(RegExp(r'^CFG\s+'), '').trim();
+      final tokens = clean.split(RegExp(r'\s+'));
+      final map = <String, String>{};
+      for (final token in tokens) {
+        final parts = token.split('=');
+        if (parts.length == 2) {
+          map[parts[0].toLowerCase()] = parts[1];
+        }
+      }
+      int brightness = _config.brightness;
+      if (map.containsKey('b')) {
+        brightness = (int.tryParse(map['b']!) ?? 128).clamp(0, 255);
+      }
+      Color color = _config.color;
+      if (map.containsKey('c')) {
+        final rgb = map['c']!.split(',');
+        if (rgb.length == 3) {
+          final r = (int.tryParse(rgb[0]) ?? 255).clamp(0, 255);
+          final g = (int.tryParse(rgb[1]) ?? 140).clamp(0, 255);
+          final b = (int.tryParse(rgb[2]) ?? 0).clamp(0, 255);
+          color = Color.fromARGB(255, r, g, b);
+        }
+      }
+      int timeFormat = _config.timeFormat;
+      if (map.containsKey('f')) {
+        final f = int.tryParse(map['f']!) ?? 24;
+        timeFormat = (f == 12) ? 12 : 24;
+      }
+      int alarmDurationSec = _config.alarmDurationSec;
+      int timerAlertDurationSec = _config.timerAlertDurationSec;
+      int pomoTransitionAlertSec = _config.pomoTransitionAlertSec;
+      int pomoFinishedAlertSec = _config.pomoFinishedAlertSec;
+      if (map.containsKey('d')) {
+        final durParts = map['d']!.split(',');
+        if (durParts.length == 4) {
+          alarmDurationSec = int.tryParse(durParts[0]) ?? 60;
+          timerAlertDurationSec = int.tryParse(durParts[1]) ?? 30;
+          pomoTransitionAlertSec = int.tryParse(durParts[2]) ?? 5;
+          pomoFinishedAlertSec = int.tryParse(durParts[3]) ?? 30;
+        }
+      }
+      _config = ClockConfig(
+        brightness: brightness,
+        color: color,
+        timeFormat: timeFormat,
+        alarmDurationSec: alarmDurationSec,
+        timerAlertDurationSec: timerAlertDurationSec,
+        pomoTransitionAlertSec: pomoTransitionAlertSec,
+        pomoFinishedAlertSec: pomoFinishedAlertSec,
+      );
+      notifyListeners();
+    } else if (line.startsWith('ALMS')) {
+      final clean = line.replaceFirst(RegExp(r'^ALMS\s+'), '').trim();
+      final alarmStrs = clean.split(RegExp(r'\s+'));
+      for (final aStr in alarmStrs) {
+        final fields = aStr.split(':');
+        if (fields.length == 5) {
+          final idx = int.tryParse(fields[0]) ?? 0;
+          final h = int.tryParse(fields[1]) ?? 7;
+          final m = int.tryParse(fields[2]) ?? 0;
+          final days = int.tryParse(fields[3]) ?? 0;
+          final enabled = fields[4] == '1';
+          if (idx >= 0 && idx < 5) {
+            final existingLabel = _alarms[idx].label;
+            _alarms[idx] = ClockAlarm(
+              index: idx,
+              hour: h,
+              minute: m,
+              days: days,
+              enabled: enabled,
+              label: existingLabel,
+            );
+          }
+        }
+      }
       notifyListeners();
     } else if (line.startsWith('ALARM')) {
       final parsed = ClockAlarm.parse(line);
@@ -303,9 +386,9 @@ class BleService extends ChangeNotifier {
   /// Sincroniza estado completo del reloj: STATUS, CONFIG y ALARMS
   Future<void> syncAll() async {
     await sendCommand('GET_STATUS');
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 200));
     await sendCommand('GET_CONFIG');
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 200));
     await sendCommand('GET_ALARMS');
   }
 

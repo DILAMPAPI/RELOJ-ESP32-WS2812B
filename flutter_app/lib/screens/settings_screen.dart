@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ble_service.dart';
+import '../models/clock_config.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onGoToLighting;
@@ -18,7 +19,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _timerSec = 30;
   int _pomoTransSec = 5;
   int _pomoFinSec = 30;
-  bool _initializedConfig = false;
+  ClockConfig _lastConfig = const ClockConfig();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ble = context.read<BleService>();
+      if (ble.isConnected) {
+        ble.sendCommand('GET_CONFIG');
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -41,17 +53,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isConnected = ble.isConnected;
     final theme = Theme.of(context);
 
-    if (!_initializedConfig) {
+    if (_lastConfig != config) {
       _alarmSec = config.alarmDurationSec;
       _timerSec = config.timerAlertDurationSec;
       _pomoTransSec = config.pomoTransitionAlertSec;
       _pomoFinSec = config.pomoFinishedAlertSec;
-      _initializedConfig = true;
+      _lastConfig = config;
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Configuración del Reloj'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar configuración',
+            onPressed: isConnected ? () => ble.sendCommand('GET_CONFIG') : null,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),

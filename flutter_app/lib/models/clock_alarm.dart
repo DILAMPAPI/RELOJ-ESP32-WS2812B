@@ -125,4 +125,19 @@ class ClockAlarm {
   String toAddCommand() {
     return 'ADD_ALARM $index $hour $minute $days ${enabled ? 1 : 0}';
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ClockAlarm &&
+        other.index == index &&
+        other.hour == hour &&
+        other.minute == minute &&
+        other.days == days &&
+        other.enabled == enabled &&
+        other.label == label;
+  }
+
+  @override
+  int get hashCode => Object.hash(index, hour, minute, days, enabled, label);
 }

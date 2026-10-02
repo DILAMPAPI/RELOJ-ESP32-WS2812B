@@ -110,4 +110,28 @@ class ClockConfig {
       pomoFinishedAlertSec: pomoFinishedAlertSec ?? this.pomoFinishedAlertSec,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ClockConfig &&
+        other.brightness == brightness &&
+        other.color == color &&
+        other.timeFormat == timeFormat &&
+        other.alarmDurationSec == alarmDurationSec &&
+        other.timerAlertDurationSec == timerAlertDurationSec &&
+        other.pomoTransitionAlertSec == pomoTransitionAlertSec &&
+        other.pomoFinishedAlertSec == pomoFinishedAlertSec;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        brightness,
+        color,
+        timeFormat,
+        alarmDurationSec,
+        timerAlertDurationSec,
+        pomoTransitionAlertSec,
+        pomoFinishedAlertSec,
+      );
 }
